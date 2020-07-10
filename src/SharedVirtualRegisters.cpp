@@ -1,4 +1,4 @@
-#include "SharedVirtualRegisters.h"
+#include "SharedVirtualRegisters.hpp"
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -54,4 +54,14 @@ uint8_t SharedVirtualRegisters::GetRegAndNext(void) {
     uint8_t val = GetReg();
     SelectNextReg();
     return val;
+}
+
+void SharedVirtualRegisters::Write(uint32_t num, uint8_t val)
+{
+    this->registers[num] = val;
+}
+
+uint8_t SharedVirtualRegisters::Read(uint32_t num)
+{
+    return this->registers[num];
 }

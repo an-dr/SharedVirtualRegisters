@@ -1,7 +1,8 @@
-/* 
+/*
  * The MIT License (MIT)
  *
  * Copyright (c) 2019 Ha Thach (tinyusb.org)
+ * Modifications: Copyright (c) 2020 Andrei Gramakov. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -24,8 +25,9 @@
  * This file is part of the TinyUSB stack.
  */
 
-#ifndef _TUSB_OSAL_H_
-#define _TUSB_OSAL_H_
+#pragma once
+
+#include "SharedVirtualRegisters.hpp"
 
 #ifdef __cplusplus
  extern "C" {
@@ -34,7 +36,6 @@
 /** \addtogroup group_osal
  *  @{ */
 
-#include "common/tusb_common.h"
 
 // Return immediately
 #define OSAL_TIMEOUT_NOTIMEOUT (0)
@@ -47,13 +48,13 @@
 
 typedef void (*osal_task_func_t)( void * );
 
-#if CFG_TUSB_OS == OPT_OS_NONE
+#if CFG_SHAREDVR_OS == SHAREDVR_OPT_OSNONE
   #include "osal_none.h"
-#elif CFG_TUSB_OS == OPT_OS_FREERTOS
+#elif CFG_SHAREDVR_OS == SHAREDVR_OPT_OSFREERTOS
   #include "osal_freertos.h"
-#elif CFG_TUSB_OS == OPT_OS_MYNEWT
+#elif CFG_SHAREDVR_OS == SHAREDVR_OPT_OSMYNEWT
   #include "osal_mynewt.h"
-#elif CFG_TUSB_OS == OPT_OS_CUSTOM
+#elif CFG_SHAREDVR_OS == SHAREDVR_OPT_OSCUSTOM
   #include "tusb_os_custom.h" // implemented by application
 #else
   #error OS is not supported yet
@@ -98,4 +99,3 @@ static inline bool osal_queue_empty(osal_queue_t qhdl);
 
 /** @} */
 
-#endif /* _TUSB_OSAL_H_ */

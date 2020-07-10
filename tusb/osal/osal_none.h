@@ -1,7 +1,8 @@
-/* 
+/*
  * The MIT License (MIT)
  *
  * Copyright (c) 2019 Ha Thach (tinyusb.org)
+ * Modifications: Copyright (c) 2020 Andrei Gramakov. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -24,8 +25,7 @@
  * This file is part of the TinyUSB stack.
  */
 
-#ifndef _TUSB_OSAL_NONE_H_
-#define _TUSB_OSAL_NONE_H_
+#pragma once
 
 #ifdef __cplusplus
  extern "C" {
@@ -212,5 +212,3 @@ static inline bool osal_queue_empty(osal_queue_t qhdl)
 #ifdef __cplusplus
  }
 #endif
-
-#endif /* _TUSB_OSAL_NONE_H_ */

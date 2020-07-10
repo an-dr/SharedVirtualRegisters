@@ -1,7 +1,8 @@
-/* 
+/*
  * The MIT License (MIT)
  *
  * Copyright (c) 2019 Ha Thach (tinyusb.org)
+ * Modifications: Copyright (c) 2020 Andrei Gramakov. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -24,17 +25,12 @@
  * This file is part of the TinyUSB stack.
  */
 
-#ifndef _TUSB_OSAL_FREERTOS_H_
-#define _TUSB_OSAL_FREERTOS_H_
+#pragma once
 
-// FreeRTOS Headers
-#include "FreeRTOS.h"
-#include "semphr.h"
-#include "queue.h"
-#include "task.h"
+#include "os/os.h"
 
 #ifdef __cplusplus
-extern "C" {
+ extern "C" {
 #endif
 
 //--------------------------------------------------------------------+
@@ -42,55 +38,57 @@ extern "C" {
 //--------------------------------------------------------------------+
 static inline void osal_task_delay(uint32_t msec)
 {
-  vTaskDelay( pdMS_TO_TICKS(msec) );
+  os_time_delay( os_time_ms_to_ticks32(msec) );
 }
 
 //--------------------------------------------------------------------+
 // Semaphore API
 //--------------------------------------------------------------------+
-typedef StaticSemaphore_t osal_semaphore_def_t;
-typedef SemaphoreHandle_t osal_semaphore_t;
+typedef struct os_sem  osal_semaphore_def_t;
+typedef struct os_sem* osal_semaphore_t;
 
 static inline osal_semaphore_t osal_semaphore_create(osal_semaphore_def_t* semdef)
 {
-  return xSemaphoreCreateBinaryStatic(semdef);
+  return (os_sem_init(semdef, 0) == OS_OK) ? (osal_semaphore_t) semdef : NULL;
 }
 
 static inline bool osal_semaphore_post(osal_semaphore_t sem_hdl, bool in_isr)
 {
-  return in_isr ?  xSemaphoreGiveFromISR(sem_hdl, NULL) : xSemaphoreGive(sem_hdl);
+  (void) in_isr;
+  return os_sem_release(sem_hdl) == OS_OK;
 }
 
-static inline bool osal_semaphore_wait (osal_semaphore_t sem_hdl, uint32_t msec)
+static inline bool osal_semaphore_wait(osal_semaphore_t sem_hdl, uint32_t msec)
 {
-  uint32_t const ticks = (msec == OSAL_TIMEOUT_WAIT_FOREVER) ? portMAX_DELAY : pdMS_TO_TICKS(msec);
-  return xSemaphoreTake(sem_hdl, ticks);
+  uint32_t const ticks = (msec == OSAL_TIMEOUT_WAIT_FOREVER) ? OS_TIMEOUT_NEVER : os_time_ms_to_ticks32(msec);
+  return os_sem_pend(sem_hdl, ticks) == OS_OK;
 }
 
-static inline void osal_semaphore_reset(osal_semaphore_t const sem_hdl)
+static inline void osal_semaphore_reset(osal_semaphore_t sem_hdl)
 {
-  xQueueReset(sem_hdl);
+  // TODO implement later
 }
 
 //--------------------------------------------------------------------+
 // MUTEX API (priority inheritance)
 //--------------------------------------------------------------------+
-typedef StaticSemaphore_t osal_mutex_def_t;
-typedef SemaphoreHandle_t osal_mutex_t;
+typedef struct os_mutex osal_mutex_def_t;
+typedef struct os_mutex* osal_mutex_t;
 
 static inline osal_mutex_t osal_mutex_create(osal_mutex_def_t* mdef)
 {
-  return xSemaphoreCreateMutexStatic(mdef);
+  return (os_mutex_init(mdef) == OS_OK) ? (osal_mutex_t) mdef : NULL;
 }
 
-static inline bool osal_mutex_lock (osal_mutex_t mutex_hdl, uint32_t msec)
+static inline bool osal_mutex_lock(osal_mutex_t mutex_hdl, uint32_t msec)
 {
-  return osal_semaphore_wait(mutex_hdl, msec);
+  uint32_t const ticks = (msec == OSAL_TIMEOUT_WAIT_FOREVER) ? OS_TIMEOUT_NEVER : os_time_ms_to_ticks32(msec);
+  return os_mutex_pend(mutex_hdl, ticks) == OS_OK;
 }
 
 static inline bool osal_mutex_unlock(osal_mutex_t mutex_hdl)
 {
-  return xSemaphoreGive(mutex_hdl);
+  return os_mutex_release(mutex_hdl) == OS_OK;
 }
 
 //--------------------------------------------------------------------+
@@ -100,41 +98,76 @@ static inline bool osal_mutex_unlock(osal_mutex_t mutex_hdl)
 // role device/host is used by OS NONE for mutex (disable usb isr) only
 #define OSAL_QUEUE_DEF(_role, _name, _depth, _type) \
   static _type _name##_##buf[_depth];\
-  osal_queue_def_t _name = { .depth = _depth, .item_sz = sizeof(_type), .buf = _name##_##buf };
+  static struct os_event _name##_##evbuf[_depth];\
+  osal_queue_def_t _name = { .depth = _depth, .item_sz = sizeof(_type), .buf = _name##_##buf, .evbuf =  _name##_##evbuf};\
 
 typedef struct
 {
   uint16_t depth;
   uint16_t item_sz;
   void*    buf;
+  void*    evbuf;
 
-  StaticQueue_t sq;
+  struct os_mempool mpool;
+  struct os_mempool epool;
+
+  struct os_eventq  evq;
 }osal_queue_def_t;
 
-typedef QueueHandle_t osal_queue_t;
+typedef osal_queue_def_t* osal_queue_t;
 
 static inline osal_queue_t osal_queue_create(osal_queue_def_t* qdef)
 {
-  return xQueueCreateStatic(qdef->depth, qdef->item_sz, (uint8_t*) qdef->buf, &qdef->sq);
+  if ( OS_OK != os_mempool_init(&qdef->mpool, qdef->depth, qdef->item_sz, qdef->buf, "usbd queue") ) return NULL;
+  if ( OS_OK != os_mempool_init(&qdef->epool, qdef->depth, sizeof(struct os_event), qdef->evbuf, "usbd evqueue") ) return NULL;
+
+  os_eventq_init(&qdef->evq);
+  return (osal_queue_t) qdef;
 }
 
 static inline bool osal_queue_receive(osal_queue_t qhdl, void* data)
 {
-  return xQueueReceive(qhdl, data, portMAX_DELAY);
+  struct os_event* ev;
+  ev = os_eventq_get(&qhdl->evq);
+
+  memcpy(data, ev->ev_arg, qhdl->item_sz); // copy message
+  os_memblock_put(&qhdl->mpool, ev->ev_arg); // put back mem block
+  os_memblock_put(&qhdl->epool, ev);         // put back ev block
+
+  return true;
 }
 
 static inline bool osal_queue_send(osal_queue_t qhdl, void const * data, bool in_isr)
 {
-  return in_isr ? xQueueSendToBackFromISR(qhdl, data, NULL) : xQueueSendToBack(qhdl, data, OSAL_TIMEOUT_WAIT_FOREVER);
+  (void) in_isr;
+
+  // get a block from mem pool for data
+  void* ptr = os_memblock_get(&qhdl->mpool);
+  if (!ptr) return false;
+  memcpy(ptr, data, qhdl->item_sz);
+
+  // get a block from event pool to put into queue
+  struct os_event* ev = (struct os_event*) os_memblock_get(&qhdl->epool);
+  if (!ev)
+  {
+    os_memblock_put(&qhdl->mpool, ptr);
+    return false;
+  }
+  tu_memclr(ev, sizeof(struct os_event));
+  ev->ev_arg = ptr;
+
+  os_eventq_put(&qhdl->evq, ev);
+
+  return true;
 }
 
 static inline bool osal_queue_empty(osal_queue_t qhdl)
 {
-  return uxQueueMessagesWaiting(qhdl) == 0;
+  return STAILQ_EMPTY(&qhdl->evq.evq_list);
 }
+
 
 #ifdef __cplusplus
  }
 #endif
 
-#endif /* _TUSB_OSAL_FREERTOS_H_ */
