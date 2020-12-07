@@ -1,2 +1,3 @@
 # SharedVirtualRegisters
-The library allows to create shared thread-save data chunk accessible in registers way
+
+The library allows to dynamically create a set of thread-save registers
