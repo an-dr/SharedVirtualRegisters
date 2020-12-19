@@ -35,6 +35,12 @@ bool SVR_Deinit(SharedVirtualRegisters_t *regs);
 bool SVR_Set(SharedVirtualRegisters_t *regs, unsigned reg_num, SVR_reg_t val, bool from_isr, unsigned timeout_ticks);
 bool SVR_Get(SharedVirtualRegisters_t *regs, unsigned reg_num, SVR_reg_t *val_buf, bool from_isr, unsigned timeout_ticks);
 const SVR_reg_t *SVR_get_regs(SharedVirtualRegisters_t *regs, unsigned *amount_buf);
+bool SVR_Dump(SharedVirtualRegisters_t *regs,
+              unsigned start,
+              unsigned amount,
+              SVR_reg_t *buf,
+              bool from_isr,
+              unsigned timeout_ticks);
 
 #ifdef __cplusplus
 }

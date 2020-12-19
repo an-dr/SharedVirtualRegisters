@@ -11,9 +11,9 @@
 // *************************************************************************
 
 #include "SharedVirtualRegisters.h"
-#include "svr_mux.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include "svr_mux.h"
 
 
 bool SVR_Init(SharedVirtualRegisters_t *regs, unsigned regs_ammount) {
@@ -68,4 +68,25 @@ const SVR_reg_t* SVR_get_regs(SharedVirtualRegisters_t *regs, unsigned *amount_b
 {
     *amount_buf = regs->regs_ammount;
     return regs->registers;
+
+bool SVR_Dump(SharedVirtualRegisters_t *regs,
+              unsigned start,
+              unsigned amount,
+              SVR_reg_t *buf,
+              bool from_isr,
+              unsigned timeout_ticks) {
+    if (start > (regs->regs_ammount - 1)) {
+        return false;
+    }
+    if (!SVR_mux_take(&(regs->mux), from_isr, timeout_ticks)) {
+        return false;
+    }
+    for(int r = start; r<regs->regs_ammount; r++){
+        buf[r-start] = regs->registers[r];
+    }
+
+    if (!SVR_mux_give(&(regs->mux), from_isr)) {
+        return false;
+    }
+    return true;
 }
