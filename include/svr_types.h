@@ -26,7 +26,9 @@ typedef SemaphoreHandle_t SVR_mux_handle_t;
 typedef unsigned char *SVR_mux_handle_t;
 #endif
 
+#ifndef SVR_reg_t
 #define SVR_reg_t unsigned char
+#endif
 
 typedef struct {
     bool inited;

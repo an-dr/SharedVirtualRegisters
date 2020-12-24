@@ -64,10 +64,10 @@ bool SVR_Get(SharedVirtualRegisters_t *regs, unsigned reg_num, SVR_reg_t *val_bu
     return true;
 }
 
-const SVR_reg_t* SVR_get_regs(SharedVirtualRegisters_t *regs, unsigned *amount_buf)
-{
+const SVR_reg_t* SVR_get_regs(SharedVirtualRegisters_t *regs, unsigned *amount_buf) {
     *amount_buf = regs->regs_ammount;
     return regs->registers;
+}
 
 bool SVR_Dump(SharedVirtualRegisters_t *regs,
               unsigned start,
