@@ -68,6 +68,7 @@ const SVR_reg_t* SVR_get_regs(SharedVirtualRegisters_t *regs, unsigned *amount_b
 {
     *amount_buf = regs->regs_ammount;
     return regs->registers;
+}
 
 bool SVR_Dump(SharedVirtualRegisters_t *regs,
               unsigned start,
